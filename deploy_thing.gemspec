@@ -39,8 +39,8 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency     'aws-sdk',            '~> 2.0.21.pre'
   spec.add_runtime_dependency     'aws-sdk-resources',  '~> 2.0.21.pre'
 
-  spec.add_runtime_dependency     'vfs',                '~> 0.5.1'
-  spec.add_runtime_dependency     'vos',                '~> 0.4.2'
+  spec.add_runtime_dependency     'sequel',             '~> 4.20.0'
+  spec.add_runtime_dependency     'sqlite3',            '~> 1.3.10'
 
   spec.add_runtime_dependency     'table_print',        '~> 1.5.3'
 end
