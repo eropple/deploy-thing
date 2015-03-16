@@ -1,5 +1,9 @@
 require "deploy_thing/version"
 
+require 'json'
+require 'yaml'
+require 'nokogiri'
+
 require "aws-sdk"
 require 'sequel'
 

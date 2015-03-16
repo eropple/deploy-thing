@@ -11,12 +11,6 @@ module DeployThing
 
       many_to_one :config,  :class => "DeployThing::Models::Config",
                             :key => :config_id
-
-      many_to_one :policy,  :class => "DeployThing::Models::Policy",
-                            :key => :policy_id
-                            
-      many_to_one :userdata,  :class => "DeployThing::Models::Userdata",
-                              :key => :userdata_id
     end
   end
 end

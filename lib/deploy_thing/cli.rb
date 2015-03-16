@@ -224,13 +224,7 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              tp(app.policies.sort { |a,b| a.ordinal <=> b.ordinal }.map do |p|
-                {
-                  :application => app.name,
-                  :version => p.ordinal,
-                  :time => p.created_at
-                }
-              end)
+              raise "Not yet uniquely implemented; upload JSON files as 'iam/*.json'."
             end
           end
         end,
@@ -254,15 +248,8 @@ module DeployThing
             db.transaction do
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
-              policy = 
-                if opts[:"policy-version"]
-                  Models::Policy.where( :application_id => app.id, :ordinal => opts[:"policy-version"].to_i )
-                else
-                  Models::Policy.latest(app)
-                end
 
-              raise "No policy found." unless policy
-              puts policy.formatted_content
+              raise "Not yet uniquely implemented; upload JSON files as 'iam/*.json'."
             end
           end
         end,
@@ -289,15 +276,7 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              latest_policy = Models::Policy.latest(app)
-              policy = Models::Policy.new
-              policy.application_id = app.id
-              policy.ordinal = (latest_policy != nil ? latest_policy.ordinal : 0) + 1
-
-              policy.content = IO.read(opts[:"policy-file"])
-              policy.save
-
-              logger.info "Uploaded '#{opts[:"policy-file"]}' as policy \##{policy.ordinal}."
+              raise "Not yet uniquely implemented; upload JSON files as 'iam/*.json'."
             end
           end
         end,
@@ -321,22 +300,7 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              latest_policy = Models::Policy.latest(app)
-              body = latest_policy != nil ? latest_policy.formatted_content : ""
-              new_body = Util::Files::edit_interactively(body).strip
-
-              if (body == new_body)
-                logger.info "No changes made; skipping upload."
-              else
-                policy = Models::Policy.new
-                policy.application_id = app.id
-                policy.ordinal = (latest_policy != nil ? latest_policy.ordinal : 0) + 1
-
-                policy.content = new_body
-                policy.save
-
-                logger.info "Edited policy; new version \##{policy.ordinal}."
-              end
+              raise "Not yet uniquely implemented; upload JSON files as 'iam_policy.json'."
             end
           end
         end
@@ -364,13 +328,8 @@ module DeployThing
             db.transaction do
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
-              tp(app.userdata.sort { |a,b| a.ordinal <=> b.ordinal }.map do |p|
-                {
-                  :application => app.name,
-                  :version => p.ordinal,
-                  :time => p.created_at
-                }
-              end)
+
+              raise "Not yet uniquely implemented; upload bash file as 'userdata.bash'."
             end
           end
         end,
@@ -394,15 +353,8 @@ module DeployThing
             db.transaction do
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
-              userdata = 
-                if opts[:"userdata-version"]
-                  Models::Userdata.where( :application_id => app.id, :ordinal => opts[:"userdata-version"].to_i ).first
-                else
-                  Models::Userdata.latest(app)
-                end
 
-              raise "No userdata found." unless userdata
-              puts userdata.content
+              raise "Not yet uniquely implemented; upload bash file as 'userdata.bash'."
             end
           end
         end,
@@ -429,15 +381,7 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              latest_userdata = Models::Userdata.latest(app)
-              userdata = Models::Userdata.new
-              userdata.application_id = app.id
-              userdata.ordinal = (latest_userdata != nil ? latest_userdata.ordinal : 0) + 1
-
-              userdata.content = IO.read(opts[:"userdata-file"])
-              userdata.save
-
-              logger.info "Uploaded '#{opts[:"userdata-file"]}' as userdata \##{userdata.ordinal}."
+              raise "Not yet uniquely implemented; upload bash file as 'userdata.bash'."
             end
           end
         end,
@@ -619,29 +563,10 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              latest_file = Models::ConfigFile.latest(app, opts[:"config-name"])
+              config_name = opts[:"config-name"]
+              content = IO.read(opts[:"config-file"])
 
-              file = Models::ConfigFile.new
-              file.application_id = app.id
-              file.ordinal = (latest_file != nil ? latest_file.ordinal : 0) + 1
-              file.name = opts[:"config-name"]
-              file.content = IO.read(opts[:"config-file"])
-
-              file.save
-              logger.info "Uploaded '#{file.name}' as version \##{file.ordinal}."
-
-              latest_config = Models::Config.latest(app)
-              config = Models::Config.new
-              config.application_id = app.id
-              config.ordinal = (latest_config != nil ? latest_config.ordinal : 0) + 1
-              config.save
-              if latest_config
-                latest_config.files.select { |f| f.name != file.name }.each { |f| config.add_file(f) }
-              end
-              config.add_file(file)
-              config.save
-
-              logger.info "Created configuration version \##{config.ordinal}."
+              Models::ConfigFile.put(logger, app, config_name, content)
             end
           end
         end,
@@ -667,35 +592,13 @@ module DeployThing
               app = Models::Application.where( :name => opts[:"application-name"] ).first
               raise "Unknown application '#{opts[:"application-name"]}'." unless app
 
-              latest_file = Models::ConfigFile.latest(app, opts[:"config-name"])
+              config_name = opts[:"config-name"]
+
+              latest_file = Models::ConfigFile.latest(app, config_name)
               body = latest_file != nil ? latest_file.content : ""
-              new_body = DeployThing::Util::Files::edit_interactively(body, File.extname(opts[:"config-name"]))
+              new_body = DeployThing::Util::Files::edit_interactively(body, File.extname(config_name))
 
-              if (body.strip == new_body.strip)
-                logger.info "No changes made to file; skipping."
-              else
-                file = Models::ConfigFile.new
-                file.application_id = app.id
-                file.ordinal = (latest_file != nil ? latest_file.ordinal : 0) + 1
-                file.name = opts[:"config-name"]
-                file.content = new_body
-
-                file.save
-                logger.info "Edited '#{file.name}' into version \##{file.ordinal}."
-
-                latest_config = Models::Config.latest(app)
-                config = Models::Config.new
-                config.application_id = app.id
-                config.ordinal = (latest_config != nil ? latest_config.ordinal : 0) + 1
-                config.save
-                if latest_config
-                  latest_config.files.select { |f| f.name != file.name }.each { |f| config.add_file(f) }
-                end
-                config.add_file(file)
-                config.save
-
-                logger.info "Created configuration version \##{config.ordinal}."
-              end
+              Models::ConfigFile.put(logger, app, config_name, new_body)
             end
           end
         end
@@ -768,6 +671,12 @@ module DeployThing
                 else
                   Models::Config.latest(app)
                 end
+
+              missing_files = [ "deploy.yaml", "iam.json", "userdata.bash" ].select do |req|
+                config.files.find { |cfg| cfg.name == req } != nil
+              end
+              raise "Missing required files: #{missing_files.join(", ")}" unless missing_files.empty?
+
               policy = 
                 if opts[:"policy-version"]
                   Models::Policy.where( :application_id => app.id, :ordinal => opts[:"policy-version"].to_i )
