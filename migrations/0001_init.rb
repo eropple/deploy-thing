@@ -3,6 +3,7 @@ Sequel.migration do
     create_table(:applications) do
       primary_key :id
       column      :name, String
+
       index [:name], :unique => true
     end
 
@@ -11,21 +12,23 @@ Sequel.migration do
       foreign_key :application_id, :applications
       column      :ordinal, Fixnum
       column      :name, String
-      index [:application_id, :ordinal, :name], :unique => true
 
       column      :created_at, Time
       column      :updated_at, Time
       column      :content, String
+
+      index [:application_id, :ordinal, :name], :unique => true
     end
 
     create_table(:configs) do
       primary_key :id
       foreign_key :application_id, :applications
       column      :ordinal, Fixnum
-      index [:application_id, :ordinal], :unique => true
 
       column      :created_at, Time
       column      :updated_at, Time
+
+      index [:application_id, :ordinal], :unique => true
     end
 
     create_table(:config_file_mapping) do
@@ -38,11 +41,34 @@ Sequel.migration do
       primary_key :id
       foreign_key :application_id, :applications
       column      :ordinal, Fixnum
-      index [:application_id, :ordinal], :unique => true
 
       column      :created_at, Time
       column      :updated_at, Time
       column      :artifact_version, String
       foreign_key :config_id, :configs
+
+      index [:application_id, :ordinal], :unique => true
+    end
+
+    create_table(:launches) do
+      primary_key :id
+      foreign_key :application_id, :applications
+      column      :ordinal, Fixnum
+
+      column      :created_at, Time
+      column      :updated_at, Time
+      foreign_key :deploy_id, :deploys
+      column      :aws_id, String
+
+      index [:application_id, :ordinal], :unique => true
+    end
+
+    create_table(:load_balancers) do
+      primary_key :id
+      foreign_key :application_id, :applications
+
+      column      :aws_id, String
+
+      index[:application_id], :unique => true
     end
 end
