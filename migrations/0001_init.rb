@@ -62,14 +62,5 @@ Sequel.migration do
 
       index [:application_id, :ordinal], :unique => true
     end
-
-    create_table(:load_balancers) do
-      primary_key :id
-      foreign_key :application_id, :applications
-
-      column      :aws_id, String
-
-      index [:application_id], :unique => true
-    end
   end
 end

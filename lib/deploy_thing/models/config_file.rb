@@ -1,6 +1,8 @@
 module DeployThing
   module Models
     class ConfigFile < Sequel::Model(:config_files)
+      REQUIRED_CONFIG_FILES = [ "iam.json", "launch.yaml", "userdata.bash" ].freeze
+
       plugin :validation_helpers
       plugin :timestamps
 
@@ -63,12 +65,18 @@ module DeployThing
           file.save
           logger.info "Uploaded '#{file.name}' as version \##{file.ordinal}."
 
-          iam_file = ConfigFile.latest(app, "iam.json")
-          userdata_file = ConfigFile.latest(app, "userdata.bash")
-          deploy_file = ConfigFile.latest(app, "deploy.yaml")
+          config_ok = true
+          REQUIRED_CONFIG_FILES.each do |f|
+            cfg = ConfigFile.latest(app, f)
+            if !cfg
+              config_ok = false
+              logger.info "Missing required config file '#{f}'."
+            end
+          end
 
-          if !(iam_file && userdata_file && deploy_file)
-            logger.info "Since iam.json, userdata.bash, and deploy.yaml don't exist, not creating a config."
+
+          if !config_ok
+            logger.info "Since a required file is missing, will not create a config."
             nil
           else
             latest_config = Config.latest(app)

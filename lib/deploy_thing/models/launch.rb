@@ -11,6 +11,11 @@ module DeployThing
 
       many_to_one :deploy,  :class => "DeployThing::Models::Deploy",
                             :key => :deploy_id
+    
+      def self.launch(app, config)
+
+        
+      end
     end
   end
 end

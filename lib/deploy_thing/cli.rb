@@ -42,8 +42,7 @@ module DeployThing
                       userdata_commands(logger),
                       config_commands(logger),
                       deploy_commands(logger),
-                      launch_commands(logger),
-                      lb_commands(logger)].flatten
+                      launch_commands(logger)].flatten
 
       root = Cri::Command.define do
         extend DSLExtensions
@@ -716,11 +715,8 @@ module DeployThing
     end
 
     def self.launch_commands(logger)
-      []
-    end
-
-    def self.lb_commands(logger)
-      []
+      [
+      ]
     end
   end
 end
