@@ -20,34 +20,12 @@ module DeployThing
           }
         end
       end
-      def aws_opts
-        optional nil, :iam,           "use instance profile credentials"
-        optional nil, :profile,       "use specified profile from ~/.aws/credentials"
-      end
-      def db_opts
-        required nil, :db,            "database connection string"
+      def env_opts
+        optional :e, :environment, "path to environment file"
       end
 
-
-      def credentials_from_opts(opts)
-        require 'aws-sdk'
-
-        raise "--iam or --profile must be used." unless (opts[:iam] ^ opts[:profile])
-
-        if opts[:iam]
-          Aws::InstanceProfileCredentials.new
-        elsif opts[:profile]
-          Aws::SharedCredentials.new(:profile_name => opts[:profile])
-        else
-          raise "???"
-        end
-      end
-      def db_from_opts(opts)
-        raise "--db is required." unless opts[:db]
-
-        db = Sequel.connect(opts[:db])
-        Sequel::Model.db = db
-        db
+      def env_from_opts(opts)
+        Environment.from_file(opts[:environment] || "#{ENV['HOME']}/.deploy-thing.yaml")
       end
     end
 
@@ -109,11 +87,12 @@ module DeployThing
           name        'db-test'
           description 'test database connectivity'
 
-          db_opts
+          env_opts
 
           run do |opts, args, cmd|
             begin
-              db = db_from_opts(opts)
+              env = env_from_opts(opts)
+              db = env.db
               db["SELECT 1"]
               logger.info "Connected to the database successfully."
             rescue StandardError => err
@@ -130,12 +109,13 @@ module DeployThing
           name        'db-migrate'
           description 'migrate database'
 
-          db_opts
+          env_opts
 
           optional nil, :"migration-version", "database version (defaults to latest)"
 
           run do |opts, args, cmd|
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
 
             migration_path = File.expand_path(File.join(File.dirname(__FILE__), "..", "..", "migrations"))
 
@@ -161,10 +141,11 @@ module DeployThing
           name        'list-applications'
           description 'list all applications'
 
-          db_opts
+          env_opts
 
           run do |opts, args, cmd|
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -180,14 +161,15 @@ module DeployThing
           name        'create-application'
           description 'creates an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -210,14 +192,15 @@ module DeployThing
           name        'list-policies'
           description 'list policies for an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -234,7 +217,7 @@ module DeployThing
           name        'show-policy'
           description 'shows the requested policy'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           optional :p, :"policy-version",   "policy version"
@@ -242,7 +225,8 @@ module DeployThing
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -259,7 +243,7 @@ module DeployThing
           name        'put-policy'
           description 'uploads a policy from a file'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :f, :"policy-file",      "local policy file"
@@ -269,7 +253,8 @@ module DeployThing
             raise "--policy-file is required and must exist." \
               unless opts[:"policy-file"] && File.exist?(opts[:"policy-file"])
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -286,14 +271,15 @@ module DeployThing
           name        'edit-policy'
           description 'interactively edits policy'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -315,14 +301,15 @@ module DeployThing
           name        'list-userdata'
           description 'list userdata for an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -339,7 +326,7 @@ module DeployThing
           name        'show-userdata'
           description 'shows the requested userdata'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           optional :p, :"userdata-version", "userdata version"
@@ -347,7 +334,8 @@ module DeployThing
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -364,7 +352,7 @@ module DeployThing
           name        'put-userdata'
           description 'uploads a userdata from a file'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :f, :"userdata-file",    "local userdata file"
@@ -374,7 +362,8 @@ module DeployThing
             raise "--userdata-file is required and must exist." \
               unless opts[:"userdata-file"] && File.exist?(opts[:"userdata-file"])
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -391,14 +380,15 @@ module DeployThing
           name        'edit-userdata'
           description 'interactively edits userdata'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -435,14 +425,15 @@ module DeployThing
           name        'list-configs'
           description 'list configs for an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -464,7 +455,7 @@ module DeployThing
           name        'list-config-files'
           description 'list files for a given config'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           optional :c, :"config-version", "version of the config to list"
@@ -472,7 +463,8 @@ module DeployThing
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -506,7 +498,7 @@ module DeployThing
           name        'show-config-file'
           description 'shows a given config file'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :n, :"config-name", "name of the file to store"
@@ -516,7 +508,8 @@ module DeployThing
             raise "--application-name is required." unless opts[:"application-name"]
             raise "--config-name is required." unless opts[:"config-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -544,7 +537,7 @@ module DeployThing
           name        'put-config-file'
           description 'upload a new config file'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :n, :"config-name", "name of the file to store"
@@ -556,7 +549,8 @@ module DeployThing
             raise "--config-file is required and must exist." \
               unless opts[:"config-file"] && File.exist?(opts[:"config-file"])
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -576,7 +570,7 @@ module DeployThing
           name        'edit-config-file'
           description 'interactively edit a config file'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :n, :"config-name", "name of the file to store"
@@ -585,7 +579,8 @@ module DeployThing
             raise "--application-name is required." unless opts[:"application-name"]
             raise "--config-name is required." unless opts[:"config-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -613,14 +608,15 @@ module DeployThing
           name        'list-deploys'
           description 'list deploys for an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do
@@ -646,7 +642,7 @@ module DeployThing
           name        'create-deploy'
           description 'creates a new deploy for an application'
 
-          db_opts
+          env_opts
           
           required :a, :"application-name", "application name"
           required :r, :"artifact-version", "version of the artifact to bind"
@@ -658,7 +654,8 @@ module DeployThing
             raise "--application-name is required." unless opts[:"application-name"]
             raise "--artifact-version is required." unless opts[:"artifact-version"]
 
-            db = db_from_opts(opts)
+            env = env_from_opts(opts)
+            db = env.db
             require 'deploy_thing/models'
 
             db.transaction do

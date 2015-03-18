@@ -69,6 +69,7 @@ Sequel.migration do
 
       column      :aws_id, String
 
-      index[:application_id], :unique => true
+      index [:application_id], :unique => true
     end
+  end
 end
