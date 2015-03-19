@@ -65,35 +65,7 @@ module DeployThing
           file.save
           logger.info "Uploaded '#{file.name}' as version \##{file.ordinal}."
 
-          config_ok = true
-          REQUIRED_CONFIG_FILES.each do |f|
-            cfg = ConfigFile.latest(app, f)
-            if !cfg
-              config_ok = false
-              logger.info "Missing required config file '#{f}'."
-            end
-          end
-
-
-          if !config_ok
-            logger.info "Since a required file is missing, will not create a config."
-            nil
-          else
-            latest_config = Config.latest(app)
-            config = Models::Config.new
-            config.application_id = app.id
-            config.ordinal = (latest_config != nil ? latest_config.ordinal : 0) + 1
-            config.save
-            if latest_config
-              latest_config.files.select { |f| f.name != file.name }.each { |f| config.add_file(f) }
-            end
-            config.add_file(file)
-            config.save
-
-            logger.info "Created configuration version \##{config.ordinal}."
-
-            config
-          end
+          Config.with_new_file(app, file)
         end
       end
     end

@@ -33,7 +33,7 @@ module DeployThing
                                :secret_access_key => cfg[:aws][:secret_key])
         end
 
-      s3_client = Aws::S3::Client.new(region: cfg[:s3][:region])
+      s3_client = Aws::S3::Client.new(region: cfg[:s3][:region], credentials: aws_credentials)
       s3_resource = Aws::S3::Resource.new(client: s3_client)
 
       s3_bucket = s3_resource.bucket(cfg[:s3][:bucket])

@@ -71,8 +71,10 @@ module DeployThing
         description 'opens a Pry debugger inside the context of the app'
 
         core_opts
+        env_opts
 
         run do |opts, args, cmd|
+          env = env_from_opts(opts)
           binding.pry
         end
       end
@@ -646,8 +648,6 @@ module DeployThing
           required :a, :"application-name", "application name"
           required :r, :"artifact-version", "version of the artifact to bind"
           optional :c, :"config-version", "version of the config to bind"
-          optional :p, :"policy-version", "version of the policy to bind"
-          optional :u, :"userdata-version", "version of the userdata to bind"
 
           run do |opts, args, cmd|
             raise "--application-name is required." unless opts[:"application-name"]
@@ -668,31 +668,11 @@ module DeployThing
                   Models::Config.latest(app)
                 end
 
-              missing_files = [ "deploy.yaml", "iam.json", "userdata.bash" ].select do |req|
-                config.files.find { |cfg| cfg.name == req } != nil
-              end
-              raise "Missing required files: #{missing_files.join(", ")}" unless missing_files.empty?
-
-              policy = 
-                if opts[:"policy-version"]
-                  Models::Policy.where( :application_id => app.id, :ordinal => opts[:"policy-version"].to_i )
-                else
-                  Models::Policy.latest(app)
-                end
-              userdata = 
-                if opts[:"userdata-version"]
-                  Models::Userdata.where( :application_id => app.id, :ordinal => opts[:"userdata-version"].to_i ).first
-                else
-                  Models::Userdata.latest(app)
-                end
-
               latest_deploy = Models::Deploy.latest(app)
 
               if latest_deploy &&
                  latest_deploy.artifact_version == opts[:"artifact-version"] &&
-                 latest_deploy.config_id == config.id &&
-                 latest_deploy.policy_id == policy.id &&
-                 latest_deploy.userdata_id == userdata.id
+                 latest_deploy.config_id == config.id
 
                  logger.info "The requested deploy is the same as the current latest deploy; doing nothing."
 
@@ -702,8 +682,6 @@ module DeployThing
                 deploy.ordinal = (latest_deploy != nil ? latest_deploy.ordinal : 0) + 1
                 deploy.artifact_version = opts[:"artifact-version"]
                 deploy.config = config
-                deploy.policy = policy
-                deploy.userdata = userdata
 
                 deploy.save
                 logger.info "New deploy saved as \##{deploy.ordinal}."
@@ -716,6 +694,68 @@ module DeployThing
 
     def self.launch_commands(logger)
       [
+        Cri::Command.define do
+          extend DSLExtensions 
+        
+          name        'launch'
+          description 'launches an ASG of the requested application.'
+
+          env_opts
+          
+          required :a, :"application-name", "application name"
+          optional :d, :"deploy-version", "version of the deploy to bind"
+
+          run do |opts, args, cmd|
+            raise "--application-name is required." unless opts[:"application-name"]
+
+            env = env_from_opts(opts)
+            db = env.db
+            require 'deploy_thing/models'
+
+            app = Models::Application.where( :name => opts[:"application-name"] ).first
+              raise "Unknown application '#{opts[:"application-name"]}'." unless app
+
+            deploy =
+              if opts[:"deploy-version"]
+                Models::Deploy.where( :application_id => app.id, :ordinal => opts[:"deploy-version"].to_i ).first
+              else
+                Models::Deploy.latest(app)
+              end
+
+            raise "Could not get deploy. If --deploy-version was not set, make sure you've created a deploy." \
+              unless deploy
+
+            Models::Launch.create(env, deploy)
+          end
+        end,
+        Cri::Command.define do
+          extend DSLExtensions 
+        
+          name        'down'
+          description 'shuts down an ASG of the requested application.'
+
+          env_opts
+          
+          required :a, :"application-name", "application name"
+          required :L, :"launch-version", "version of the launch to bring down"
+
+          run do |opts, args, cmd|
+            raise "--application-name is required." unless opts[:"application-name"]
+            raise "--launch-version is required." unless opts[:"launch-version"]
+
+            env = env_from_opts(opts)
+            db = env.db
+            require 'deploy_thing/models'
+
+            app = Models::Application.where( :name => opts[:"application-name"] ).first
+              raise "Unknown application '#{opts[:"application-name"]}'." unless app
+
+            launch = Models::Launch.where( :application_id => app.id, :ordinal => opts[:"launch-version"] ).first
+              raise "Unknown launch '#{opts[:"launch-version"]}'." unless launch
+
+            launch.down!(env)
+          end
+        end
       ]
     end
   end

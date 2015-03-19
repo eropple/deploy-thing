@@ -33,6 +33,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency     "pry"
   spec.add_runtime_dependency     'cri',                '~> 2.6.1'
+  spec.add_runtime_dependency     'erber',              '~> 0.1.1'
   spec.add_runtime_dependency     "hashie",             "~> 3.3"
   spec.add_runtime_dependency     'activesupport',      '~> 4.2.0'
 

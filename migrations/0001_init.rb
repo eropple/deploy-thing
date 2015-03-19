@@ -55,6 +55,8 @@ Sequel.migration do
       foreign_key :application_id, :applications
       column      :ordinal, Fixnum
 
+      column      :status, Fixnum
+
       column      :created_at, Time
       column      :updated_at, Time
       foreign_key :deploy_id, :deploys
