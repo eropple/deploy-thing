@@ -725,7 +725,9 @@ module DeployThing
             raise "Could not get deploy. If --deploy-version was not set, make sure you've created a deploy." \
               unless deploy
 
-            Models::Launch.create(env, deploy)
+            launch = Models::Launch.create(env, deploy)
+            require 'pry'
+            binding.pry
           end
         end,
         Cri::Command.define do

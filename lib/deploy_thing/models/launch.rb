@@ -32,14 +32,14 @@ module DeployThing
       def up!(env)
         raise "Cannot re-launch a launch. Create a new one." unless status == LaunchStatus::NOT_CREATED
 
-        ld = deploy.get_launch_details
-
-        deploy.ensure_prerequisites(env)
-        asg_client = Aws::AutoScaling::Client.new(region: ld[:region], credentials: env.aws_credentials)
-
         begin
+          ld = deploy.get_launch_details
+
+          deploy.ensure_prerequisites(env)
+          asg_client = Aws::AutoScaling::Client.new(region: ld[:region], credentials: env.aws_credentials)
+
           lc_name = deploy.get_launch_configuration_name
-          aws_id = "#{application.name}-Launch_#{ordinal}"
+          self.aws_id = "#{application.name}-Launch_#{ordinal}"
 
           asg_max = (ld[:asg][:size] || {})[:max] || 1
           asg_min = (ld[:asg][:size] || {})[:min] || asg_min
@@ -60,13 +60,13 @@ module DeployThing
           )
 
           LOGGER.info "Launch \##{ordinal} (ASG name '#{aws_id}') succeeded."
-          status = LaunchStatus::UP
-          save
+          self.status = LaunchStatus::UP
+          save_changes
             
         rescue Exception => e
           LOGGER.error "Launch \##{ordinal} (ASG name '#{aws_id}') failed."
-          status = LaunchStatus::FAILED
-          save
+          self.status = LaunchStatus::FAILED
+          save_changes
 
           raise e
         end
@@ -103,18 +103,25 @@ module DeployThing
                 max_records: 1
               )
 
-              break if resp[:instances].empty?
+              if resp[:auto_scaling_groups].empty?
+                LOGGER.debug "ASG not found; assuming manual cleanup."
+                break
+              end
+
+              break if resp[:auto_scaling_groups][0][:instances].empty?
               LOGGER.info "Waiting on instances..."
               sleep 5
             end
 
+            LOGGER.info "Auto-scaling group is empty. Deleting..."
             asg_client.delete_auto_scaling_group(
               auto_scaling_group_name: aws_id
             )
+            LOGGER.info "Deleted ASG '#{aws_id}'."
           end
 
-          status = LaunchStatus::DOWN
-          save
+          self.status = LaunchStatus::DOWN
+          save_changes
         rescue StandardError => e
           LOGGER.error "Down of launch \##{ordinal} failed. Not setting to DOWN; should be safe to re-run."
           raise e
@@ -127,6 +134,7 @@ module DeployThing
       NOT_CREATED = 0
       UP = 1
       DOWN = 2
+      FAILED = 666
     end
   end
 end

@@ -55,16 +55,17 @@ module DeployThing
         destroy_aws_launch_configuration(env)
         LOGGER.info "- IAM role"
         destroy_iam_role(env)
-        LOGGER.info "- S3 config package"
-        destroy_s3_configuration(env, ld)
       end
 
       def ensure_s3_configuration(env, ld)
         s3_object = get_s3_config_object(env)
 
         if !s3_object.exist?
+          config_args = {
+            :custom_args => ld[:custom_args] || {}
+          }
           archive = Dir.mktmpdir do |dir|
-            config.get_contents_for_all_non_reserved_files(ld[:custom_args] || {}).each_pair do |name, content|
+            config.get_contents_for_all_non_reserved_files(config_args).each_pair do |name, content|
               IO.write("#{dir}/#{name}", content)
             end
 
@@ -164,6 +165,7 @@ module DeployThing
       def ensure_aws_launch_configuration(env, ld, s3_object)
         asg_client = Aws::AutoScaling::Client.new(region: ld[:region], credentials: env.aws_credentials)
         iam_client = Aws::IAM::Client.new(region: ld[:region], credentials: env.aws_credentials)
+        iam_resource = Aws::IAM::Resource.new(client: iam_client)
 
         lc_name = get_launch_configuration_name
         LOGGER.debug "Checking for launch configuration '#{lc_name}'..."
@@ -172,16 +174,19 @@ module DeployThing
           LOGGER.debug "Launch configuration '#{lc_name}' not found, creating."
           userdata = build_userdata(env)
 
-          require 'pry'; binding.pry
-          profile_name = iam_profile_name(env)
-          iam_client.create_instance_profile(instance_profile_name: profile_name)
-          iam_client.add_role_to_instance_profile(
-            instance_profile_name: profile_name,
-            role_name: iam_role_name(env)
-          )
-          require 'pry'; binding.pry
-
           begin
+            require 'pry'; binding.pry
+            profile_name = iam_profile_name(env)
+            iam_client.create_instance_profile(instance_profile_name: profile_name)
+            iam_client.add_role_to_instance_profile(
+              instance_profile_name: profile_name,
+              role_name: iam_role_name(env)
+            )
+            verify = iam_client.get_instance_profile(instance_profile_name: profile_name)
+
+            sleep 2
+            require 'pry'; binding.pry
+
             lc = asg_client.create_launch_configuration(
               launch_configuration_name: lc_name,
               image_id: ld[:asg][:ami],
