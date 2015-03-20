@@ -27,6 +27,10 @@ module DeployThing
         missing_files.length == 0
       end
 
+      def has_live_launches?
+        
+      end
+
       def self.with_new_file(app, file)
         latest_config = Config.latest(app)
         config = Config.new

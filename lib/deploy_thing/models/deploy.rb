@@ -42,8 +42,11 @@ module DeployThing
         lc = ensure_aws_launch_configuration(env, ld, s3_object)
       end
       
+      def has_live_launches?
+        launches.any? { |launch| launch.status == LaunchStatus::UP }
+      end
       def destroy_prerequisites_if_childless(env)
-        destroy(env) unless launches.length > 0
+        destroy(env) unless has_live_launches?
       end
 
       private
@@ -52,9 +55,9 @@ module DeployThing
         LOGGER.info "Destroying prerequisites for deploy \##{ordinal}."
 
         LOGGER.info "- launch configuration"
-        destroy_aws_launch_configuration(env)
+        destroy_aws_launch_configuration(env, ld)
         LOGGER.info "- IAM role"
-        destroy_iam_role(env)
+        destroy_iam_role(env, ld)
       end
 
       def ensure_s3_configuration(env, ld)
@@ -119,7 +122,7 @@ module DeployThing
           )
           LOGGER.debug "Created '#{role_name}', attaching policies."
           policy = Aws::IAM::RolePolicy.new(role_name: role_name,
-                                            name: "DeployThing-#{config.ordinal}",
+                                            name: "DeployThing",
                                             client: iam_client)
           policy.put(policy_document: iam_policy)
           LOGGER.debug "Uploaded policy to '#{role_name}' (#{iam_policy.length} characters)."
@@ -127,7 +130,7 @@ module DeployThing
           role
         end
       end
-      def destroy_iam_role(env)
+      def destroy_iam_role(env, ld)
         iam_client = Aws::IAM::Client.new(region: ld[:region], credentials: env.aws_credentials)
         iam_resource = Aws::IAM::Resource.new(client: iam_client)
 
@@ -137,6 +140,10 @@ module DeployThing
         role = iam_resource.role(role_name)
         if role
           LOGGER.debug "Found '#{role_name}', destroying it."
+          iam_client.delete_role_policy(
+            role_name: role_name,
+            policy_name: "DeployThing"
+          )
           role.delete
         end
       end
@@ -229,13 +236,13 @@ module DeployThing
 
         lc_name = get_launch_configuration_name
         LOGGER.debug "Checking for launch configuration '#{lc_name}'..."
-        lc = asg_client.describe_launch_configuration(launch_configuration_names: [ lc_name ])[:launch_configurations][0]
+        lc = asg_client.describe_launch_configurations(launch_configuration_names: [ lc_name ])[:launch_configurations][0]
 
         if lc
           LOGGER.debug "Found launch configuration '#{lc_name}', deleting."
           asg_client.delete_launch_configuration(launch_configuration_name: lc_name)
 
-          delete_instance_profile(iam_client)
+          delete_instance_profile(env, iam_client)
         end
       end
 
