@@ -1,6 +1,8 @@
 module DeployThing
   module Models
     class ConfigFile < Sequel::Model(:config_files)
+      REQUIRED_CONFIG_FILES = [ "iam.json", "launch.yaml", "userdata.bash" ].freeze
+
       plugin :validation_helpers
       plugin :timestamps
 
@@ -63,29 +65,7 @@ module DeployThing
           file.save
           logger.info "Uploaded '#{file.name}' as version \##{file.ordinal}."
 
-          iam_file = ConfigFile.latest(app, "iam.json")
-          userdata_file = ConfigFile.latest(app, "userdata.bash")
-          deploy_file = ConfigFile.latest(app, "deploy.yaml")
-
-          if !(iam_file && userdata_file && deploy_file)
-            logger.info "Since iam.json, userdata.bash, and deploy.yaml don't exist, not creating a config."
-            nil
-          else
-            latest_config = Config.latest(app)
-            config = Models::Config.new
-            config.application_id = app.id
-            config.ordinal = (latest_config != nil ? latest_config.ordinal : 0) + 1
-            config.save
-            if latest_config
-              latest_config.files.select { |f| f.name != file.name }.each { |f| config.add_file(f) }
-            end
-            config.add_file(file)
-            config.save
-
-            logger.info "Created configuration version \##{config.ordinal}."
-
-            config
-          end
+          Config.with_new_file(app, file)
         end
       end
     end
