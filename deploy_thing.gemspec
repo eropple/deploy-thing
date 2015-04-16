@@ -42,6 +42,7 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency     'sequel',             '~> 4.20.0'
   spec.add_runtime_dependency     'sqlite3',            '~> 1.3.10'
+  spec.add_runtime_dependency     'pg'
 
   spec.add_runtime_dependency     'table_print',        '~> 1.5.3'
 
