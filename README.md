@@ -28,6 +28,7 @@ gem install deploy_thing
 ```
 
 ### An Example Workflow ###
+_(note: this is outdated at this point, but I haven't needed DeployThing for a new project enough to exhaustively update the docs. Shoot me an email if you're using this, it'll help me get back on the project.)_
 1. Application `foo` is registered with `deploy_thing app new --name foo`.
 2. You upload a DeployThing config file (as opposed to an application config file, which uses the same mechanism; `deploy_thing.yaml` is a reserved name) with `deploy_thing config upload --app foo --file /path/to/some_file.yaml --remote-file deploy_thing.yaml`. This creates config version `1` (the _C_ above). (Note that `--remote-file` is optional and will default to the local file name.)
 3. Belatedly, you realize you typoed something, and use `deploy_thing config edit foo --remote-file deploy_thing.yaml` to open it in `vim` and edit it. The new version is 2.
